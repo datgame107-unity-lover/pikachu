@@ -1,0 +1,74 @@
+# =========================
+# Unity generated files
+# =========================
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+UserSettings/
+Assets/AssetStoreTools*
+
+# Ignore auto-generated VS/JetBrains files
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+
+# Ignore crash and error logs
+sysinfo.txt
+*.stackdump
+
+# Ignore build results
+*.apk
+*.aab
+*.unitypackage
+*.exe
+*.app
+*.xcodeproj
+*.xcworkspace
+*.xcuserdata/
+*.xcuserstate
+*.ipa
+
+# Ignore Rider and Visual Studio cache
+*.DotSettings.user
+*.DotSettings
+_ReSharper.Caches/
+*.ncrunchsolution
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Ignore JetBrains Rider plugin metadata
+.idea/
+*.iml
+
+# Ignore local environment configs
+.vscode/
+*.code-workspace
+
+# Optional: Ignore addressables build cache
+/Assets/AddressableAssetsData/Android/
+/Assets/AddressableAssetsData/iOS/
+/Assets/AddressableAssetsData/Windows/
+
+# Optional: Ignore Unity Collaborate
+/Collab/
+
+# =========================
+# END
+# =========================
