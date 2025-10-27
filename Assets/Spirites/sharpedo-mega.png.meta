@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: fbd2c67367fd0bf43993eaa644e73cae
+guid: 81a808e43b69ae748b6a3ba4a92a2751
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -3429211760299993513
-    second: alcremie-mint-cream-flower_0
+      213: 1145354552534265582
+    second: sharpedo-mega_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: alcremie-mint-cream-flower_0
+      name: sharpedo-mega_0
       rect:
         serializedVersion: 2
-        x: 21
-        y: 2
-        width: 25
-        height: 32
+        x: 22
+        y: 1
+        width: 27
+        height: 29
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 7561abf921ef860d0800000000000000
-      internalID: -3429211760299993513
+      spriteID: eee6eada5ed15ef00800000000000000
+      internalID: 1145354552534265582
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      alcremie-mint-cream-flower_0: -3429211760299993513
+      sharpedo-mega_0: 1145354552534265582
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

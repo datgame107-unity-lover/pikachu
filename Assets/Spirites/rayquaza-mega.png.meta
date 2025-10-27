@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: fbd2c67367fd0bf43993eaa644e73cae
+guid: 8a0a51c046b72be4b9fc17067748a260
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -3429211760299993513
-    second: alcremie-mint-cream-flower_0
+      213: 4891803829945934333
+    second: rayquaza-mega_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: alcremie-mint-cream-flower_0
+      name: rayquaza-mega_0
       rect:
         serializedVersion: 2
-        x: 21
+        x: 14
         y: 2
-        width: 25
-        height: 32
+        width: 40
+        height: 27
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 7561abf921ef860d0800000000000000
-      internalID: -3429211760299993513
+      spriteID: df1a2da5aad23e340800000000000000
+      internalID: 4891803829945934333
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      alcremie-mint-cream-flower_0: -3429211760299993513
+      rayquaza-mega_0: 4891803829945934333
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
