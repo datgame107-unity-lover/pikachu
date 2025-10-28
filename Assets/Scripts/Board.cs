@@ -86,7 +86,7 @@ public class Board : MonoBehaviour
     }
     private void CreatePair()
     {
-        Pokemon pokemon = pokemons[Random.Range(0, pokemons.Count)];
+        Pokemon pokemon = pokemons[UnityEngine.Random.Range(0, pokemons.Count)];
 
         CreateCellInfo(pokemon);
         CreateCellInfo(pokemon);
@@ -132,7 +132,7 @@ public class Board : MonoBehaviour
                     DrawPath(connectPath);
                     Debug.Log($"✅ Đường hợp lệ với {connectPath.Count} điểm!");
                     StartCoroutine(DeleteCellAfterDelay(0.3f, cell, firstSelected.cell));
-                    print("haha");
+                    GameManager.Instance.AddScore(1);
 
                 }
                 else
