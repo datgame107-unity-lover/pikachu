@@ -18,7 +18,7 @@ public class UIManager : MonoBehaviour
         float ratio = Mathf.Clamp01(currentTime / maxTime);
         timeBar.fillAmount = ratio;
         timeBar.color = gradient.Evaluate(ratio);
-    }
+    } 
 
     private void OnDisable()
     {

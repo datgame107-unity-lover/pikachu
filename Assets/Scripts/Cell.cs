@@ -20,7 +20,7 @@ public class Cell : MonoBehaviour
     
     private void OnMouseDown()
     {
-            Board.Instance.FindConnectedPath(this);
+        Board.Instance.FindConnectedPath(this);
     }
     public void Clear()
     {
