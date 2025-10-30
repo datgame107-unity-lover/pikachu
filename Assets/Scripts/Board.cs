@@ -25,8 +25,14 @@ public class Board : MonoBehaviour
     [SerializeField]
     public LineRenderer lineRenderer;
     [SerializeField, Min(0.05f)]
-
     private float cellPadding = 0.05f;
+    [SerializeField]
+    private AudioClip clickSound;
+    [SerializeField]
+    private AudioClip linkedSound;
+    [SerializeField]
+    private AudioClip oho;
+
     private Tile[,] tiles;
     private List<Vector2Int> emptyCells;
     private List<Vector2Int> connectPath;
@@ -37,6 +43,7 @@ public class Board : MonoBehaviour
     private Cell secondSelected;
     private bool isDeleting;
     private bool isShuffling;
+    
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -117,16 +124,22 @@ public class Board : MonoBehaviour
         }
         if (firstSelected == null)
         {
+            PlaySound(clickSound);
             firstSelected = cell;
             firstSelected.Choose();
         }
         else if (cell == firstSelected)
         {
+            PlaySound(clickSound);
+            PlaySound(oho);
+
             firstSelected.Clear();
             firstSelected = null;
         }
         else
         {
+            SoundManagerSO.Instance.PlaySOundFXClip(clickSound, transform.position, 0.5f);
+
             secondSelected = cell;
             secondSelected.Choose();
             if (firstSelected.pokemon.Equals(secondSelected.pokemon))
@@ -136,11 +149,14 @@ public class Board : MonoBehaviour
                 {
                     isDeleting = true;
                     DrawPath(connectPath);
+                    PlaySound(linkedSound);
                     StartCoroutine(DeleteCellAfterDelay(0.2f, firstSelected, secondSelected));
                 }
             }
             else
             {
+
+                PlaySound(oho);
                 firstSelected.Clear();
                 secondSelected.Clear();
                 firstSelected = null;
@@ -461,5 +477,10 @@ public class Board : MonoBehaviour
                 Debug.Log("[" + i + "," + j + "]" + "is" + tiles[i, j].Occupied);
             }
         }
+    }
+    private void PlaySound(AudioClip audioClip)
+    {
+        SoundManagerSO.Instance.PlaySOundFXClip(audioClip, transform.position, 0.75f);
+
     }
 }

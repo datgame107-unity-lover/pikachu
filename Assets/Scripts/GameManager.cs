@@ -6,6 +6,7 @@ public class GameManager : MonoBehaviour
 
     private int score = 0;
     [SerializeField] private float maxPlayTime = 60f; // 60 giây
+    [SerializeField] private AudioClip finish;
     private float currentTime;
     private bool isPlaying = false;
 
@@ -37,6 +38,7 @@ public class GameManager : MonoBehaviour
             currentTime = 0;
             isPlaying = false;
             Debug.Log("⏰ Hết thời gian!");
+            SoundManagerSO.Instance.PlaySOundFXClip(finish, transform.position, 0.75f);
         }
     }
 
