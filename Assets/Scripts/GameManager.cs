@@ -16,13 +16,15 @@ public enum GameState
 
 public class GameManager : MonoBehaviour
 {
-  
     public static GameManager Instance;
     public GameState state = 0;
     private int score = 0;
     [SerializeField] private float maxPlayTime = 30f; // 60 giây
     [SerializeField] private AudioClip lose;
     [SerializeField] private AudioClip win;
+    [SerializeField]
+    private AudioSource backgroundMusic;
+    public float volumn;
     private float currentTime;
     private bool isPlaying = false;
     private int level = 1;
@@ -57,7 +59,13 @@ public class GameManager : MonoBehaviour
             GameOver();
         }
     }
+    public void TurnSound()
+    {
+        if (volumn == 0) volumn = 0.45f;
+        else volumn = 0;
+        backgroundMusic.volume = GameManager.Instance.volumn;
 
+    }
     public void StartGame()
     {
         score = 0;
@@ -67,12 +75,15 @@ public class GameManager : MonoBehaviour
         EventManager.PlayTimeElapsed(currentTime, maxPlayTime);
         EventManager.NewGame();
     }
-
+    
     public LevelType NextLevel()
     {
         level++;
-        SoundManagerSO.Instance.PlaySOundFXClip(win, transform.position, 0.75f);
-        EventManager.NewGame();
+        currentTime = Mathf.Clamp(maxPlayTime - 10 * level, maxPlayTime / 2, maxPlayTime);
+        state = GameState.Playing;
+        SoundManagerSO.Instance.PlaySOundFXClip(win, transform.position, volumn);
+        EventManager.PlayTimeElapsed(currentTime, maxPlayTime);
+        EventManager.NextLevel(level);
         if (level % 3 == 1)
             return LevelType.Normal;
         else if (level % 3 == 2)
@@ -84,7 +95,7 @@ public class GameManager : MonoBehaviour
     public void GameOver()
     {
         state = GameState.GameOver;
-        SoundManagerSO.Instance.PlaySOundFXClip(lose, transform.position,0.75f);
+        SoundManagerSO.Instance.PlaySOundFXClip(lose, transform.position,volumn);
         EventManager.GameOver();
     }
     public void AddScore(int amount)

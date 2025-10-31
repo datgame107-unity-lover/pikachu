@@ -35,6 +35,7 @@ public class Board : MonoBehaviour
     private AudioClip linkedSound;
     [SerializeField]
     private AudioClip oho;
+   
 
     private Tile[,] tiles;
     private List<Vector2Int> emptyCells;
@@ -107,6 +108,11 @@ public class Board : MonoBehaviour
     public void NewGame()
     {
         GameManager.Instance.StartGame();
+        InnitialNewGame();
+       
+    }
+    private void InnitialNewGame()
+    {
         if (tiles != null)
         {
             DeleteCurrentTiles(tiles);
@@ -139,11 +145,12 @@ public class Board : MonoBehaviour
 
         }
     }
-
+  
     private void NextLevel()
     {
         level = GameManager.Instance.NextLevel();
-        NewGame(level);
+        InnitialNewGame();
+
     }
     private bool CheckWin()
     {       
@@ -197,7 +204,6 @@ public class Board : MonoBehaviour
         }
         else
         {
-            SoundManagerSO.Instance.PlaySOundFXClip(clickSound, transform.position, 0.5f);
 
             secondSelected = cell;
             secondSelected.Choose();
@@ -209,6 +215,7 @@ public class Board : MonoBehaviour
                     isDeleting = true;
                     DrawPath(connectPath);
                     PlaySound(linkedSound);
+                    GameManager.Instance.AddScore(1);
                     StartCoroutine(DeleteCellAfterDelay(0.2f, firstSelected, secondSelected));
                 }
             }
@@ -296,9 +303,9 @@ public class Board : MonoBehaviour
         if (isShuffling) return;
         isShuffling = true;
         List<Cell> availableCells = new();
-        for (int i = 1; i < height - 1; i++)
+        for (int i = 1; i < width - 1; i++)
         {
-            for (int j = 1; j < width - 1; j++)
+            for (int j = 1; j < height - 1; j++)
             {
                 if (tiles[i, j].Occupied && tiles[i, j].cell != null)
                 {
@@ -541,7 +548,6 @@ public class Board : MonoBehaviour
     }
     private void PlaySound(AudioClip audioClip)
     {
-        SoundManagerSO.Instance.PlaySOundFXClip(audioClip, transform.position, 0.75f);
-
+        SoundManagerSO.Instance.PlaySOundFXClip(audioClip, transform.position, GameManager.Instance.volumn);
     }
 }
