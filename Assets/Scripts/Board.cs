@@ -1,17 +1,20 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor.ShaderGraph.Serialization;
 using UnityEngine;
 using UnityEngine.Rendering;
+using static UnityEditor.PlayerSettings;
 public class Board : MonoBehaviour
-{   
-    public enum LevelType
-    {
-        Normal,
-        Gravity,
-        Spin,
+{
 
-    }
+    private static readonly Vector2Int[] directions = {
+        new (1, 0),   // phải
+        new (-1, 0),  // trái
+        new (0, 1),   // lên
+        new (0, -1)   // xuống
+    };
+
     public static Board Instance;
 
     [SerializeField]
@@ -39,13 +42,17 @@ public class Board : MonoBehaviour
 
     private List<Vector3> linePoints = new List<Vector3>();
 
+    private LevelType level;
     private Cell firstSelected;
     private Cell secondSelected;
     private bool isDeleting;
     private bool isShuffling;
-    
+    float offsetX;
+    float offsetY;
     private void Awake()
     {
+        offsetX = -(width - 1) / 2f;
+        offsetY = -(height - 1) / 2f;
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -57,12 +64,14 @@ public class Board : MonoBehaviour
     }
     private void Start()
     {
-        NewGame();
+        level = LevelType.Normal;
+        NewGame(level);
     }
 
 
-    public void NewGame()
-    {
+    public void NewGame(LevelType level)
+    {   
+        GameManager.Instance.StartGame();
         if (tiles != null)
         {
             DeleteCurrentTiles(tiles);
@@ -95,7 +104,55 @@ public class Board : MonoBehaviour
 
         }
     }
-    
+    public void NewGame()
+    {
+        GameManager.Instance.StartGame();
+        if (tiles != null)
+        {
+            DeleteCurrentTiles(tiles);
+            firstSelected = null;
+        }
+        tiles = new Tile[width, height];
+
+        for (int i = 0; i < width; i++)
+            for (int j = 0; j < height; j++)
+                tiles[i, j] = new Tile();
+
+        int totalCell = (width - 2) * (height - 2);
+        emptyCells = new List<Vector2Int>(totalCell);
+        for (int i = 1; i < width - 1; i++)
+        {
+            for (int j = 1; j < height - 1; j++)
+            {
+                emptyCells.Add(new Vector2Int(i, j));
+            }
+        }
+
+
+        while (emptyCells.Count > 1)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                CreatePair();
+
+            }
+
+        }
+    }
+
+    private void NextLevel()
+    {
+        level = GameManager.Instance.NextLevel();
+        NewGame(level);
+    }
+    private bool CheckWin()
+    {       
+        Cell cell = gameObject.GetComponentInChildren<Cell>();
+        if (cell != null)
+            return false;
+        else
+            return true;
+    }
     private void CreatePair()
     {
         Pokemon pokemon = pokemons[UnityEngine.Random.Range(0, pokemons.Count)];
@@ -113,6 +170,8 @@ public class Board : MonoBehaviour
     }
     public void FindConnectedPath(Cell cell)
     {
+        if (GameManager.Instance.state == GameState.GameOver)
+            return;
         if (isDeleting) return;
         if(cell == null) return;
         if ( secondSelected != null&&(firstSelected != null||firstSelected==null))
@@ -163,62 +222,7 @@ public class Board : MonoBehaviour
                 secondSelected = null;
             }
         }
-        //print("hhege");
-
-        //if (isDeleting)
-        //{
-        //    print("sth wetn wrong");
-        //    return;
-        //}
-        //if (cell == null)
-        //    return;
-        //if (firstSelected == null)
-        //{
-        //    firstSelected = cell;
-        //    cell.Choose();
-        //    return;
-        //}
-
-        //if (firstSelected == SecondSelected)
-        //{
-        //    firstSelected.Clear();
-        //    firstSelected = null;
-        //    SecondSelected.Clear();
-        //}
-        //else
-        //{   
-        //    SecondSelected = cell;
-        //    cell.Choose();
-
-        //    if (SecondSelected.pokemon == firstSelected.pokemon)
-        //    {
-        //        print("hhegeasdasda");
-
-        //        connectPath = BFS.FindPath(tiles, firstSelected.pos,SecondSelected.pos);
-
-        //        if (connectPath != null)
-        //        {
-        //            isDeleting = true;
-        //            DrawPath(connectPath);
-        //            Debug.Log($"✅ Đường hợp lệ với {connectPath.Count} điểm!");
-        //            StartCoroutine(DeleteCellAfterDelay(0.3f, firstSelected, SecondSelected));
-        //            GameManager.Instance.AddScore(1);
-
-        //        }
-        //        else
-        //        {
-        //            Debug.Log("❌ Không tìm thấy đường nối hợp lệ.");
-        //        }
-        //    }
-        //    else
-        //    {
-        //        SecondSelected.Clear();
-        //        firstSelected.Clear();
-        //        firstSelected = null;
-        //        SecondSelected = null;
-        //    }
-           
-        //}
+  
     }
     private Cell CreateCell(int x, int y, Pokemon pokemon)
     {
@@ -287,36 +291,36 @@ public class Board : MonoBehaviour
         }
 
     }
-    //public void ShuffleTiles()
-    //{
-    //    if (isShuffling) return;
-    //    isShuffling = true;
-    //    List<Cell> availableCells = new();
-    //    for (int i = 1; i < height - 1; i++)
-    //    {
-    //        for (int j = 1; j < width - 1; j++)
-    //        {
-    //            if (tiles[i, j].Occupied && tiles[i, j].cell != null)
-    //            {
-    //                int posX = Random.Range(1, width - 1);
-    //                int posY = Random.Range(1, height - 1);
+    public void ShuffleTiles()
+    {
+        if (isShuffling) return;
+        isShuffling = true;
+        List<Cell> availableCells = new();
+        for (int i = 1; i < height - 1; i++)
+        {
+            for (int j = 1; j < width - 1; j++)
+            {
+                if (tiles[i, j].Occupied && tiles[i, j].cell != null)
+                {
+                    int posX = Random.Range(1, width - 1);
+                    int posY = Random.Range(1, height - 1);
 
-    //                var cellA = tiles[i, j].cell;
-    //                var cellB = tiles[posX, posY].cell;
+                    var cellA = tiles[i, j].cell;
+                    var cellB = tiles[posX, posY].cell;
 
-    //                // Kiểm tra null kỹ hơn
-    //                if (cellB != null && cellA.tile != null && cellB.tile != null)
-    //                {
-    //                    Swap(cellA, cellB);
-    //                }
-    //            }
-    //        }
+                    // Kiểm tra null kỹ hơn
+                    if (cellB != null && cellA.tile != null && cellB.tile != null)
+                    {
+                        Swap(cellA, cellB);
+                    }
+                }
+            }
 
-    //    }
+        }
 
-    //    StartCoroutine(ShuffingEndsIn(1f));
+        StartCoroutine(ShuffingEndsIn(1f));
 
-    //}
+    }
     private void UpdateBoard(LevelType levelType, Vector2Int posA, Vector2Int posB)
     {
         switch (levelType)
@@ -327,7 +331,7 @@ public class Board : MonoBehaviour
                 BoardUpdateByGravity(posA, posB);
                 break;
             case LevelType.Spin:
-                BoardUpdateBySpinning();
+                BoardUpdateBySpinning(directions[Random.Range(0, directions.Length)]);
                 break;
         }
     }
@@ -340,8 +344,7 @@ public class Board : MonoBehaviour
     }
     private void ColumnUpdateByGravity(Vector2Int pos)
     {
-        float offsetX = -(width - 1) / 2f;
-        float offsetY = -(height - 1) / 2f;
+    
 
         // duyệt từ dưới lên (bỏ hàng viền)
         for (int y = 1; y < height - 1; y++)
@@ -380,10 +383,61 @@ public class Board : MonoBehaviour
         }
     }
 
-    private void BoardUpdateBySpinning()
+    private void BoardUpdateBySpinning(Vector2Int dir)
     {
 
+        // Xác định hướng duyệt theo chiều rơi
+        int startX = dir.x > 0 ? width - 2 : 1;
+        int endX = dir.x > 0 ? 0 : width - 1;
+        int stepX = dir.x > 0 ? -1 : 1;
+
+        int startY = dir.y > 0 ? height - 2 : 1;
+        int endY = dir.y > 0 ? 0 : height - 1;
+        int stepY = dir.y > 0 ? -1 : 1;
+
+        for (int i = startX; i != endX; i += stepX) // i là cột
+        {
+            for (int j = startY; j != endY; j += stepY) // j là hàng
+            {
+                if (tiles[i, j].cell == null)
+                {
+                    int nextX = i - dir.x;
+                    int nextY = j - dir.y;
+
+                    while (nextX >= 1 && nextX < width - 1 &&
+                           nextY >= 1 && nextY < height - 1)
+                    {
+                        if (tiles[nextX, nextY].cell != null)
+                        {
+                            Cell cell = tiles[nextX, nextY].cell;
+
+                            // Cập nhật mảng Tile
+                            tiles[i, j].cell = cell;
+                            tiles[nextX, nextY].cell = null;
+
+                            tiles[i, j].Occupied = true;
+                            tiles[nextX, nextY].Occupied = false;
+
+                            // Cập nhật vị trí
+                            cell.pos = new Vector2Int(i, j);
+                            cell.transform.position = new Vector3(
+                                i + offsetX + i * cellPadding,
+                                j + offsetY + j * cellPadding,
+                                0
+                            );
+                            cell.tile = tiles[i, j];
+
+                            break;
+                        }
+
+                        nextX -= dir.x;
+                        nextY -= dir.y;
+                    }
+                }
+            }
+        }
     }
+
 
 
     private void Swap(Cell cell1, Cell cell2)
@@ -451,7 +505,14 @@ public class Board : MonoBehaviour
         Debug.Log(posA + " " + tiles[posA.x, posA.y].Occupied);
         yield return new WaitForSeconds(0.02f);
         isDeleting = false;
-        BoardUpdateByGravity(posA, posB);
+
+        UpdateBoard(level,posA, posB);
+        if(CheckWin())
+        {
+            print("win");
+            NextLevel();
+
+        }
         //Debug.Log(posA + " " + tiles[posA.x, posA.y].Occupied);
 
     }

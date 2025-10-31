@@ -1,14 +1,31 @@
 ﻿using UnityEngine;
 
+public enum LevelType
+{
+    Normal,
+    Gravity,
+    Spin,
+
+}
+public enum GameState
+{
+    GameOver,
+    Playing,
+    Paused,
+}
+
 public class GameManager : MonoBehaviour
 {
+  
     public static GameManager Instance;
-
+    public GameState state = 0;
     private int score = 0;
-    [SerializeField] private float maxPlayTime = 60f; // 60 giây
-    [SerializeField] private AudioClip finish;
+    [SerializeField] private float maxPlayTime = 30f; // 60 giây
+    [SerializeField] private AudioClip lose;
+    [SerializeField] private AudioClip win;
     private float currentTime;
     private bool isPlaying = false;
+    private int level = 1;
 
     private void Awake()
     {
@@ -28,7 +45,7 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
-        if (!isPlaying) return;
+        if (state== 0) return;
 
         currentTime -= Time.deltaTime;
         EventManager.PlayTimeElapsed(currentTime, maxPlayTime);
@@ -36,9 +53,8 @@ public class GameManager : MonoBehaviour
         if (currentTime <= 0)
         {
             currentTime = 0;
-            isPlaying = false;
             Debug.Log("⏰ Hết thời gian!");
-            SoundManagerSO.Instance.PlaySOundFXClip(finish, transform.position, 0.75f);
+            GameOver();
         }
     }
 
@@ -46,11 +62,31 @@ public class GameManager : MonoBehaviour
     {
         score = 0;
         currentTime = maxPlayTime;
-        isPlaying = true;
+        state = GameState.Playing;
         EventManager.ScoreChanged(score);
         EventManager.PlayTimeElapsed(currentTime, maxPlayTime);
+        EventManager.NewGame();
     }
 
+    public LevelType NextLevel()
+    {
+        level++;
+        SoundManagerSO.Instance.PlaySOundFXClip(win, transform.position, 0.75f);
+        EventManager.NewGame();
+        if (level % 3 == 1)
+            return LevelType.Normal;
+        else if (level % 3 == 2)
+            return LevelType.Gravity;
+        else
+            return LevelType.Spin;
+    }
+
+    public void GameOver()
+    {
+        state = GameState.GameOver;
+        SoundManagerSO.Instance.PlaySOundFXClip(lose, transform.position,0.75f);
+        EventManager.GameOver();
+    }
     public void AddScore(int amount)
     {
         score += amount;

@@ -7,6 +7,7 @@ public class EventManager : MonoBehaviour
     public static event Action<int> OnScoreChanged;
 
     public static event Action OnGameOver;
+    public static event Action OnNewGame;
     public static event Action<float,float> OnPlayTimeElapsed;
     // Gọi khi điểm thay đổi
     public static void ScoreChanged(int newScore)
@@ -16,6 +17,10 @@ public class EventManager : MonoBehaviour
     public static void GameOver()
     {
         OnGameOver?.Invoke();
+    }
+    public static void NewGame()
+    {
+        OnNewGame?.Invoke();
     }
     public static void PlayTimeElapsed(float elapsedTime, float totalTime)
     {
