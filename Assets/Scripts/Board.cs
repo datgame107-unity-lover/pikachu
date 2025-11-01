@@ -52,8 +52,8 @@ public class Board : MonoBehaviour
     float offsetY;
     private void Awake()
     {
-        offsetX = -(width - 1) / 2f;
-        offsetY = -(height - 1) / 2f;
+        offsetX = -(width - 1) / 2f ;
+        offsetY = -(height - 1) / 2f +0.5f;
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -233,8 +233,6 @@ public class Board : MonoBehaviour
     }
     private Cell CreateCell(int x, int y, Pokemon pokemon)
     {
-        float offsetX = -(width - 1) / 2f;
-        float offsetY = -(height - 1) / 2f;
 
         Vector3 pos = new Vector3(
             x + offsetX + x * cellPadding,
@@ -261,8 +259,6 @@ public class Board : MonoBehaviour
 
         foreach (Vector2Int p in path)
         {
-            float offsetX = -(width - 1) / 2f;
-            float offsetY = -(height - 1) / 2f;
             Vector3 worldPos = new(p.x + offsetX + p.x * cellPadding, p.y + offsetY + p.y * cellPadding, 0);
             linePoints.Add(worldPos);
         }

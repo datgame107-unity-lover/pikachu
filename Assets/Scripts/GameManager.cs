@@ -26,7 +26,6 @@ public class GameManager : MonoBehaviour
     private AudioSource backgroundMusic;
     public float volumn;
     private float currentTime;
-    private bool isPlaying = false;
     private int level = 1;
 
     private void Awake()
