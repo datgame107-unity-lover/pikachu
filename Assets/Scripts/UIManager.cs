@@ -2,58 +2,91 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// Listens to <see cref="EventManager"/> events and updates all HUD elements:
+/// score, timer bar, level label, and the game-over overlay.
+/// </summary>
 public class UIManager : MonoBehaviour
-{   
-    
+{
+    // -------------------------------------------------------------------------
+    // Inspector fields
+    // -------------------------------------------------------------------------
+
+    [Header("HUD")]
     [SerializeField] private TextMeshProUGUI scoreText;
-    [SerializeField] private Image timeBar;
-    [SerializeField] private Gradient gradient;
-    [SerializeField] private Image gameOver;
     [SerializeField] private TextMeshProUGUI levelText;
+
+    [Header("Timer")]
+    [SerializeField] private Image timerBar;
+    [SerializeField] private Gradient timerGradient;
+
+    [Header("Overlays")]
+    [SerializeField] private GameObject gameOverOverlay;
+    [SerializeField] private Button newGameButton;
+
+    // -------------------------------------------------------------------------
+    // Unity messages
+    // -------------------------------------------------------------------------
+
     private void OnEnable()
     {
-        EventManager.OnScoreChanged += EventManager_OnScoreChanged; ;
-        EventManager.OnPlayTimeElapsed += EventManager_OnPlayTimeElapsed;
-        EventManager.OnGameOver += EventManager_OnGameOver;
-        EventManager.OnNewGame += EventManager_OnNewGame;
-        EventManager.OnNextLevel += EventManager_OnNextLevel;
+        EventManager.OnScoreChanged += HandleScoreChanged;
+        EventManager.OnPlayTimeElapsed += HandlePlayTimeElapsed;
+        EventManager.OnGameOver += HandleGameOver;
+        EventManager.OnNewGame += HandleNewGame;
+        EventManager.OnNextLevel += HandleNextLevel;
+
+        newGameButton?.onClick.AddListener(() =>
+        GameManager.Instance.StartGame()
+
+
+        );
     }
-
-    private void EventManager_OnNextLevel(int level)
-    {
-        levelText.text = level.ToString();
-
-    }
-
-    private void EventManager_OnScoreChanged(int newScore)
-    {
-        scoreText.text =newScore.ToString();
-
-    }
-
-    private void EventManager_OnNewGame()
-    {
-        gameOver.gameObject.SetActive(false);
-    }
-
-    private void EventManager_OnGameOver()
-    {
-        gameOver.gameObject.SetActive(true);
-
-    }
-    private void EventManager_OnPlayTimeElapsed(float currentTime, float maxTime)
-    {
-        float ratio = Mathf.Clamp01(currentTime / maxTime);
-        timeBar.fillAmount = ratio;
-        timeBar.color = gradient.Evaluate(ratio);
-    } 
 
     private void OnDisable()
     {
-        EventManager.OnScoreChanged -= UpdateScoreUI;
+        EventManager.OnScoreChanged -= HandleScoreChanged;
+        EventManager.OnPlayTimeElapsed -= HandlePlayTimeElapsed;
+        EventManager.OnGameOver -= HandleGameOver;
+        EventManager.OnNewGame -= HandleNewGame;
+        EventManager.OnNextLevel -= HandleNextLevel;
+        newGameButton.onClick.RemoveAllListeners();
     }
 
-    private void UpdateScoreUI(int newScore)
+    // -------------------------------------------------------------------------
+    // Event handlers
+    // -------------------------------------------------------------------------
+
+    private void HandleScoreChanged(int newScore)
     {
+        if (scoreText != null)
+            scoreText.text = newScore.ToString();
+    }
+
+    private void HandlePlayTimeElapsed(float currentTime, float maxTime)
+    {
+        if (timerBar == null) return;
+
+        float ratio = Mathf.Clamp01(currentTime / maxTime);
+        timerBar.fillAmount = ratio;
+        timerBar.color = timerGradient.Evaluate(ratio);
+    }
+
+    private void HandleGameOver()
+    {
+        if (gameOverOverlay != null)
+            gameOverOverlay.SetActive(true);
+    }
+
+    private void HandleNewGame()
+    {
+        if (gameOverOverlay != null)
+            gameOverOverlay.SetActive(false);
+    }
+
+    private void HandleNextLevel(int level)
+    {
+        if (levelText != null)
+            levelText.text = level.ToString();
     }
 }

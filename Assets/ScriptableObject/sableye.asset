@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef50248b6cfbc1047ad17dc6d75e1685, type: 3}
   m_Name: sableye
   m_EditorClassIdentifier: Assembly-CSharp::Pokemon
-  code: 1
-  pokemonSprite: {fileID: 2356813977838981031, guid: 76cef6b94f3632a4b992fd482be7e729, type: 3}
+  Code: 6
+  PokemonSprite: {fileID: 2356813977838981031, guid: 76cef6b94f3632a4b992fd482be7e729, type: 3}

@@ -1,59 +1,81 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using UnityEditor.ShaderGraph.Serialization;
 using UnityEngine;
-using UnityEngine.Rendering;
-using static UnityEditor.PlayerSettings;
+
+/// <summary>
+/// Owns the game board: creates / destroys tiles, handles cell selection,
+/// drives BFS path-finding, and applies post-match board updates
+/// (Normal / Gravity / Spin).
+/// </summary>
 public class Board : MonoBehaviour
 {
+    // -------------------------------------------------------------------------
+    // Singleton
+    // -------------------------------------------------------------------------
 
-    private static readonly Vector2Int[] directions = {
-        new (1, 0),   // phải
-        new (-1, 0),  // trái
-        new (0, 1),   // lên
-        new (0, -1)   // xuống
+    public static Board Instance { get; private set; }
+
+    // -------------------------------------------------------------------------
+    // Inspector fields
+    // -------------------------------------------------------------------------
+
+    [Header("Grid")]
+    [SerializeField, Min(4)] private int width = 8;
+    [SerializeField, Min(4)] private int height = 8;
+
+    [Header("Visuals")]
+    [SerializeField] private Cell cellPrefab;
+    [SerializeField] public LineRenderer pathLine;
+    [SerializeField, Min(0.05f)] private float cellPadding = 0.05f;
+
+    [Header("Pokémon Pool")]
+    [SerializeField] private List<Pokemon> pokemonPool;
+
+    [Header("Audio")]
+    [SerializeField] private AudioClip clickSfx;
+    [SerializeField] private AudioClip matchSfx;
+    [SerializeField] private AudioClip failSfx;
+
+    // -------------------------------------------------------------------------
+    // Constants
+    // -------------------------------------------------------------------------
+
+    private static readonly Vector2Int[] CardinalDirections =
+    {
+        new( 1,  0),
+        new(-1,  0),
+        new( 0,  1),
+        new( 0, -1),
     };
 
-    public static Board Instance;
+    private const float PathDisplayDuration = 0.25f;
+    private const float DeleteDelay = 0.20f;
+    private const float ShuffleCooldown = 1.00f;
 
-    [SerializeField]
-    private int width = 8;
-    [SerializeField]
-    private int height = 8;
-    [SerializeField]
-    private List<Pokemon> pokemons;
-    [SerializeField]
-    private Cell cellPrefab;
-    [SerializeField]
-    public LineRenderer lineRenderer;
-    [SerializeField, Min(0.05f)]
-    private float cellPadding = 0.05f;
-    [SerializeField]
-    private AudioClip clickSound;
-    [SerializeField]
-    private AudioClip linkedSound;
-    [SerializeField]
-    private AudioClip oho;
-   
+    // -------------------------------------------------------------------------
+    // Private state
+    // -------------------------------------------------------------------------
 
-    private Tile[,] tiles;
-    private List<Vector2Int> emptyCells;
-    private List<Vector2Int> connectPath;
+    private Tile[,] _tiles;
+    private LevelType _currentLevelType = LevelType.Normal;
 
-    private List<Vector3> linePoints = new List<Vector3>();
+    private Cell _firstSelected;
+    private Cell _secondSelected;
 
-    private LevelType level;
-    private Cell firstSelected;
-    private Cell secondSelected;
-    private bool isDeleting;
-    private bool isShuffling;
-    float offsetX;
-    float offsetY;
+    private bool _isProcessingMatch;
+    private bool _isShuffling;
+
+    private float _offsetX;
+    private float _offsetY;
+
+    private readonly List<Vector3> _linePoints = new();
+
+    // -------------------------------------------------------------------------
+    // Unity messages
+    // -------------------------------------------------------------------------
+
     private void Awake()
     {
-        offsetX = -(width - 1) / 2f ;
-        offsetY = -(height - 1) / 2f +0.5f;
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -62,488 +84,433 @@ public class Board : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+
+        _offsetX = -(width - 1) / 2f;
+        _offsetY = -(height - 1) / 2f + 0.5f;
     }
+
     private void Start()
     {
-        level = LevelType.Normal;
-        NewGame(level);
+        _currentLevelType = LevelType.Normal;
+        InitialiseBoard();
     }
 
+    // -------------------------------------------------------------------------
+    // Public API
+    // -------------------------------------------------------------------------
 
-    public void NewGame(LevelType level)
-    {   
-        GameManager.Instance.StartGame();
-        if (tiles != null)
-        {
-            DeleteCurrentTiles(tiles);
-            firstSelected = null;
-        }
-        tiles = new Tile[width, height];
-
-        for (int i = 0; i < width; i++)
-            for (int j = 0; j < height; j++)
-                tiles[i, j] = new Tile();
-
-        int totalCell = (width - 2) * (height - 2);
-        emptyCells = new List<Vector2Int>(totalCell);
-        for (int i = 1; i < width - 1; i++)
-        {
-            for (int j = 1; j < height - 1; j++)
-            {
-                emptyCells.Add(new Vector2Int(i, j));
-            }
-        }
-     
-
-        while (emptyCells.Count > 1)
-        {
-            for (int i = 0; i < 2; i++)
-            {
-                CreatePair();
-
-            }
-
-        }
-    }
+    /// <summary>Starts a completely new game from level 1.</summary>
     public void NewGame()
     {
         GameManager.Instance.StartGame();
-        InnitialNewGame();
-       
+        _currentLevelType = LevelType.Normal;
+        InitialiseBoard();
     }
-    private void InnitialNewGame()
+
+    /// <summary>Called by <see cref="Cell"/> when the player clicks a tile.</summary>
+    public void OnCellClicked(Cell cell)
     {
-        if (tiles != null)
+        if (GameManager.Instance.State == GameState.GameOver) return;
+        if (_isProcessingMatch) return;
+        if (cell == null) return;
+
+        // If a full pair was already highlighted, clear it first
+        if (_firstSelected != null && _secondSelected != null)
         {
-            DeleteCurrentTiles(tiles);
-            firstSelected = null;
-        }
-        tiles = new Tile[width, height];
-
-        for (int i = 0; i < width; i++)
-            for (int j = 0; j < height; j++)
-                tiles[i, j] = new Tile();
-
-        int totalCell = (width - 2) * (height - 2);
-        emptyCells = new List<Vector2Int>(totalCell);
-        for (int i = 1; i < width - 1; i++)
-        {
-            for (int j = 1; j < height - 1; j++)
-            {
-                emptyCells.Add(new Vector2Int(i, j));
-            }
-        }
-
-
-        while (emptyCells.Count > 1)
-        {
-            for (int i = 0; i < 2; i++)
-            {
-                CreatePair();
-
-            }
-
-        }
-    }
-  
-    private void NextLevel()
-    {
-        level = GameManager.Instance.NextLevel();
-        InnitialNewGame();
-
-    }
-    private bool CheckWin()
-    {       
-        Cell cell = gameObject.GetComponentInChildren<Cell>();
-        if (cell != null)
-            return false;
-        else
-            return true;
-    }
-    private void CreatePair()
-    {
-        Pokemon pokemon = pokemons[UnityEngine.Random.Range(0, pokemons.Count)];
-
-        CreateCellInfo(pokemon);
-        CreateCellInfo(pokemon);
-    }
-    private void CreateCellInfo(Pokemon pokemon)
-    {
-        Vector2Int cellPos = emptyCells[Random.Range(0, emptyCells.Count)];
-        emptyCells.Remove(cellPos);
-        Cell cell = CreateCell(cellPos.x, cellPos.y, pokemon);
-        tiles[cellPos.x, cellPos.y].Occupied = true;
-        tiles[cellPos.x, cellPos.y].cell = cell;
-    }
-    public void FindConnectedPath(Cell cell)
-    {
-        if (GameManager.Instance.state == GameState.GameOver)
+            ClearSelection();
             return;
-        if (isDeleting) return;
-        if(cell == null) return;
-        if ( secondSelected != null&&(firstSelected != null||firstSelected==null))
-        {
-            firstSelected.Clear();
-            secondSelected.Clear();
-            firstSelected = null;
-            secondSelected= null;
         }
-        if (firstSelected == null)
-        {
-            PlaySound(clickSound);
-            firstSelected = cell;
-            firstSelected.Choose();
-        }
-        else if (cell == firstSelected)
-        {
-            PlaySound(clickSound);
-            PlaySound(oho);
 
-            firstSelected.Clear();
-            firstSelected = null;
+        if (_firstSelected == null)
+        {
+            SelectFirst(cell);
+        }
+        else if (cell == _firstSelected)
+        {
+            DeselectFirst();
         }
         else
         {
+            SelectSecond(cell);
+            TryMatch();
+        }
+    }
 
-            secondSelected = cell;
-            secondSelected.Choose();
-            if (firstSelected.pokemon.Equals(secondSelected.pokemon))
-            {
-                connectPath = BFS.FindPath(tiles, firstSelected.pos, secondSelected.pos);
-                if (connectPath!=null)
-                {
-                    isDeleting = true;
-                    DrawPath(connectPath);
-                    PlaySound(linkedSound);
-                    GameManager.Instance.AddScore(1);
-                    StartCoroutine(DeleteCellAfterDelay(0.2f, firstSelected, secondSelected));
-                }
-            }
-            else
-            {
+    /// <summary>Randomly repositions all remaining tiles.</summary>
+    public void ShuffleTiles()
+    {
+        if (_isShuffling) return;
+        _isShuffling = true;
 
-                PlaySound(oho);
-                firstSelected.Clear();
-                secondSelected.Clear();
-                firstSelected = null;
-                secondSelected = null;
+        for (int x = 1; x < width - 1; x++)
+        {
+            for (int y = 1; y < height - 1; y++)
+            {
+                if (!_tiles[x, y].IsOccupied || _tiles[x, y].Cell == null) continue;
+
+                int rx = Random.Range(1, width - 1);
+                int ry = Random.Range(1, height - 1);
+
+                Cell cellA = _tiles[x, y].Cell;
+                Cell cellB = _tiles[rx, ry].Cell;
+
+                if (cellB != null && cellA.Tile != null && cellB.Tile != null)
+                    SwapCells(cellA, cellB);
             }
         }
-  
+
+        StartCoroutine(ResetShuffleFlagAfter(ShuffleCooldown));
     }
-    private Cell CreateCell(int x, int y, Pokemon pokemon)
+
+    // -------------------------------------------------------------------------
+    // Board initialisation
+    // -------------------------------------------------------------------------
+
+    private void InitialiseBoard()
     {
+        ClearBoard();
 
-        Vector3 pos = new Vector3(
-            x + offsetX + x * cellPadding,
-            y + offsetY + y * cellPadding,
-            0
-        );
+        _tiles = new Tile[width, height];
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                _tiles[x, y] = new Tile();
 
-        Cell cell = Instantiate(cellPrefab, pos, Quaternion.identity, transform);
-        cell.pokemon = pokemon;
-        cell.SetPokemonSprite(pokemon.pokemonSprite);
-        cell.pos = new(x, y);
-        cell.tile = tiles[x, y];
+        var interiorCells = BuildInteriorPositionList();
 
-        tiles[x, y].cell = cell;
+        while (interiorCells.Count > 1)
+        {
+            SpawnPair(interiorCells);
+            SpawnPair(interiorCells);
+        }
+    }
+
+    private List<Vector2Int> BuildInteriorPositionList()
+    {
+        var list = new List<Vector2Int>((width - 2) * (height - 2));
+        for (int x = 1; x < width - 1; x++)
+            for (int y = 1; y < height - 1; y++)
+                list.Add(new Vector2Int(x, y));
+        return list;
+    }
+
+    private void SpawnPair(List<Vector2Int> availablePositions)
+    {
+        Pokemon pokemon = pokemonPool[Random.Range(0, pokemonPool.Count)];
+        SpawnCell(pokemon, availablePositions);
+        SpawnCell(pokemon, availablePositions);
+    }
+
+    private void SpawnCell(Pokemon pokemon, List<Vector2Int> availablePositions)
+    {
+        int idx = Random.Range(0, availablePositions.Count);
+        Vector2Int gridPos = availablePositions[idx];
+        availablePositions.RemoveAt(idx);
+
+        Cell cell = CreateCellAt(gridPos, pokemon);
+        _tiles[gridPos.x, gridPos.y].IsOccupied = true;
+        _tiles[gridPos.x, gridPos.y].Cell = cell;
+    }
+
+    private Cell CreateCellAt(Vector2Int gridPos, Pokemon pokemon)
+    {
+        Vector3 worldPos = GridToWorld(gridPos.x, gridPos.y);
+        Cell cell = Instantiate(cellPrefab, worldPos, Quaternion.identity, transform);
+
+        cell.Initialise(pokemon, gridPos);
+        cell.Tile = _tiles[gridPos.x, gridPos.y];
 
         return cell;
     }
 
-
-    private void DrawPath(List<Vector2Int> path)
+    private void ClearBoard()
     {
-        lineRenderer.positionCount = 0;
-        linePoints.Clear();
+        _firstSelected = null;
+        _secondSelected = null;
 
-        foreach (Vector2Int p in path)
-        {
-            Vector3 worldPos = new(p.x + offsetX + p.x * cellPadding, p.y + offsetY + p.y * cellPadding, 0);
-            linePoints.Add(worldPos);
-        }
-
-        lineRenderer.positionCount = linePoints.Count;
-        lineRenderer.SetPositions(linePoints.ToArray());
-
-        StartCoroutine(ClearLineAfterDelay(0.25f));
-    }
-
-    private void DeleteCell(Cell cell)
-    {
-        cell.tile.Occupied = false;
-        tiles[cell.pos.x, cell.pos.y].cell = null;
-        Destroy(cell.gameObject);
-
-    }
-    private void DeleteCurrentTiles(Tile[,] tiles)
-    {
-
-        Cell[] cellList = GetComponentsInChildren<Cell>();
-        foreach (Cell cell in cellList)
+        foreach (Cell cell in GetComponentsInChildren<Cell>())
             Destroy(cell.gameObject);
 
-        for (int i = 0; i < width; i++)
-        {
-            for (int j = 0; j < height; j++)
-            {
-                tiles[i, j].Occupied = false;
-                tiles[i, j] = null;
+        if (_tiles == null) return;
 
-            }
-        }
-
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                _tiles[x, y]?.Clear();
     }
-    public void ShuffleTiles()
+
+    // -------------------------------------------------------------------------
+    // Selection & matching
+    // -------------------------------------------------------------------------
+
+    private void SelectFirst(Cell cell)
     {
-        if (isShuffling) return;
-        isShuffling = true;
-        List<Cell> availableCells = new();
-        for (int i = 1; i < width - 1; i++)
+        PlaySfx(clickSfx);
+        _firstSelected = cell;
+        _firstSelected.Select();
+    }
+
+    private void DeselectFirst()
+    {
+        PlaySfx(clickSfx);
+        PlaySfx(failSfx);
+        _firstSelected.Deselect();
+        _firstSelected = null;
+    }
+
+    private void SelectSecond(Cell cell)
+    {
+        _secondSelected = cell;
+        _secondSelected.Select();
+    }
+
+    private void ClearSelection()
+    {
+        _firstSelected?.Deselect();
+        _secondSelected?.Deselect();
+        _firstSelected = null;
+        _secondSelected = null;
+    }
+
+    private void TryMatch()
+    {
+        if (_firstSelected.Pokemon != _secondSelected.Pokemon)
         {
-            for (int j = 1; j < height - 1; j++)
-            {
-                if (tiles[i, j].Occupied && tiles[i, j].cell != null)
-                {
-                    int posX = Random.Range(1, width - 1);
-                    int posY = Random.Range(1, height - 1);
-
-                    var cellA = tiles[i, j].cell;
-                    var cellB = tiles[posX, posY].cell;
-
-                    // Kiểm tra null kỹ hơn
-                    if (cellB != null && cellA.tile != null && cellB.tile != null)
-                    {
-                        Swap(cellA, cellB);
-                    }
-                }
-            }
-
+            PlaySfx(failSfx);
+            ClearSelection();
+            return;
         }
 
-        StartCoroutine(ShuffingEndsIn(1f));
+        List<Vector2Int> path = BFS.FindPath(_tiles, _firstSelected.GridPosition, _secondSelected.GridPosition);
 
+        if (path == null)
+        {
+            PlaySfx(failSfx);
+            ClearSelection();
+            return;
+        }
+
+        _isProcessingMatch = true;
+        DrawPath(path);
+        PlaySfx(matchSfx);
+        GameManager.Instance.AddScore(1);
+
+        StartCoroutine(ProcessMatchAfterDelay(DeleteDelay, _firstSelected, _secondSelected));
     }
-    private void UpdateBoard(LevelType levelType, Vector2Int posA, Vector2Int posB)
+
+    // -------------------------------------------------------------------------
+    // Post-match board updates
+    // -------------------------------------------------------------------------
+
+    private void ApplyBoardUpdate(LevelType levelType, Vector2Int posA, Vector2Int posB)
     {
         switch (levelType)
         {
-            case LevelType.Normal:
-                break;
             case LevelType.Gravity:
-                BoardUpdateByGravity(posA, posB);
+                ApplyGravityToColumn(posA);
+                ApplyGravityToColumn(posB);
                 break;
+
             case LevelType.Spin:
-                BoardUpdateBySpinning(directions[Random.Range(0, directions.Length)]);
+                ApplySpinShift(CardinalDirections[Random.Range(0, CardinalDirections.Length)]);
+                break;
+
+            case LevelType.Normal:
+            default:
                 break;
         }
     }
 
-    private void BoardUpdateByGravity(Vector2Int posA, Vector2Int posB)
+    private void ApplyGravityToColumn(Vector2Int pos)
     {
-        ColumnUpdateByGravity(posA);
-        ColumnUpdateByGravity(posB);
-
-    }
-    private void ColumnUpdateByGravity(Vector2Int pos)
-    {
-    
-
-        // duyệt từ dưới lên (bỏ hàng viền)
         for (int y = 1; y < height - 1; y++)
         {
-            // nếu ô này trống
-            if (tiles[pos.x, y].cell == null)
+            if (_tiles[pos.x, y].Cell != null) continue;
+
+            for (int above = y + 1; above < height - 1; above++)
             {
-                // tìm ô có cell ở trên để rơi xuống
-                for (int above = y + 1; above < height - 1; above++)
-                {
-                    if (tiles[pos.x, above].cell != null)
-                    {
-                        Cell cell = tiles[pos.x, above].cell;
+                if (_tiles[pos.x, above].Cell == null) continue;
 
-                        // Cập nhật mảng Tile
-                        tiles[pos.x, y].cell = cell;
-                        tiles[pos.x, above].cell = null;
+                Cell fallingCell = _tiles[pos.x, above].Cell;
 
-                        // Cập nhật trạng thái Occupied
-                        tiles[pos.x, y].Occupied = true;
-                        tiles[pos.x, above].Occupied = false;
+                _tiles[pos.x, y].Cell = fallingCell;
+                _tiles[pos.x, above].Cell = null;
+                _tiles[pos.x, y].IsOccupied = true;
+                _tiles[pos.x, above].IsOccupied = false;
 
-                        // Cập nhật vị trí, pos trong Cell
-                        cell.pos = new Vector2Int(pos.x, y);
-                        cell.transform.position = new Vector3(
-                            pos.x + offsetX + pos.x * cellPadding,
-                            y + offsetY + y * cellPadding,
-                            0
-                        );
-                        cell.tile = tiles[pos.x, y];
-
-                        break; // sau khi rơi xong, thoát ra kiểm tra tiếp
-                    }
-                }
+                fallingCell.GridPosition = new Vector2Int(pos.x, y);
+                fallingCell.transform.position = GridToWorld(pos.x, y);
+                fallingCell.Tile = _tiles[pos.x, y];
+                break;
             }
         }
     }
 
-    private void BoardUpdateBySpinning(Vector2Int dir)
+    private void ApplySpinShift(Vector2Int shiftDir)
     {
+        int startX = shiftDir.x > 0 ? width - 2 : 1;
+        int endX = shiftDir.x > 0 ? 0 : width - 1;
+        int stepX = shiftDir.x > 0 ? -1 : 1;
 
-        // Xác định hướng duyệt theo chiều rơi
-        int startX = dir.x > 0 ? width - 2 : 1;
-        int endX = dir.x > 0 ? 0 : width - 1;
-        int stepX = dir.x > 0 ? -1 : 1;
+        int startY = shiftDir.y > 0 ? height - 2 : 1;
+        int endY = shiftDir.y > 0 ? 0 : height - 1;
+        int stepY = shiftDir.y > 0 ? -1 : 1;
 
-        int startY = dir.y > 0 ? height - 2 : 1;
-        int endY = dir.y > 0 ? 0 : height - 1;
-        int stepY = dir.y > 0 ? -1 : 1;
-
-        for (int i = startX; i != endX; i += stepX) // i là cột
+        for (int x = startX; x != endX; x += stepX)
         {
-            for (int j = startY; j != endY; j += stepY) // j là hàng
+            for (int y = startY; y != endY; y += stepY)
             {
-                if (tiles[i, j].cell == null)
+                if (_tiles[x, y].Cell != null) continue;
+
+                int nx = x - shiftDir.x;
+                int ny = y - shiftDir.y;
+
+                while (IsInterior(nx, ny))
                 {
-                    int nextX = i - dir.x;
-                    int nextY = j - dir.y;
-
-                    while (nextX >= 1 && nextX < width - 1 &&
-                           nextY >= 1 && nextY < height - 1)
+                    if (_tiles[nx, ny].Cell != null)
                     {
-                        if (tiles[nextX, nextY].cell != null)
-                        {
-                            Cell cell = tiles[nextX, nextY].cell;
+                        Cell shiftingCell = _tiles[nx, ny].Cell;
 
-                            // Cập nhật mảng Tile
-                            tiles[i, j].cell = cell;
-                            tiles[nextX, nextY].cell = null;
+                        _tiles[x, y].Cell = shiftingCell;
+                        _tiles[nx, ny].Cell = null;
+                        _tiles[x, y].IsOccupied = true;
+                        _tiles[nx, ny].IsOccupied = false;
 
-                            tiles[i, j].Occupied = true;
-                            tiles[nextX, nextY].Occupied = false;
-
-                            // Cập nhật vị trí
-                            cell.pos = new Vector2Int(i, j);
-                            cell.transform.position = new Vector3(
-                                i + offsetX + i * cellPadding,
-                                j + offsetY + j * cellPadding,
-                                0
-                            );
-                            cell.tile = tiles[i, j];
-
-                            break;
-                        }
-
-                        nextX -= dir.x;
-                        nextY -= dir.y;
+                        shiftingCell.GridPosition = new Vector2Int(x, y);
+                        shiftingCell.transform.position = GridToWorld(x, y);
+                        shiftingCell.Tile = _tiles[x, y];
+                        break;
                     }
+
+                    nx -= shiftDir.x;
+                    ny -= shiftDir.y;
                 }
             }
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Cell manipulation helpers
+    // -------------------------------------------------------------------------
 
-
-    private void Swap(Cell cell1, Cell cell2)
-    {   
-        Debug.Log("Swap" + cell1.pos + " " + cell2.pos);
-        (cell2.tile, cell1.tile) = (cell1.tile, cell2.tile);
-        (cell1.transform.position, cell2.transform.position) = (cell2.transform.position, cell1.transform.position);
-        (cell1.pos, cell2.pos) = (cell2.pos, cell1.pos);
-        (cell1.tile.cell, cell2.tile.cell) = (cell2.tile.cell, cell1.tile.cell);
-    }
-    private bool CheckAvailablePair(Tile[,] tiles)
+    private void RemoveCell(Cell cell)
     {
-        int width = tiles.GetLength(0);
-        int height = tiles.GetLength(1);
-        print("hehe");
-        for (int i = 1; i < width - 1; i++)
-        {
-            for (int j = 1; j < height - 1; j++)
+        _tiles[cell.GridPosition.x, cell.GridPosition.y].Clear();
+        Destroy(cell.gameObject);
+    }
+
+    private void SwapCells(Cell a, Cell b)
+    {
+        (a.Tile, b.Tile) = (b.Tile, a.Tile);
+        (a.transform.position, b.transform.position) = (b.transform.position, a.transform.position);
+        (a.GridPosition, b.GridPosition) = (b.GridPosition, a.GridPosition);
+        (a.Tile.Cell, b.Tile.Cell) = (b.Tile.Cell, a.Tile.Cell);
+    }
+
+    // -------------------------------------------------------------------------
+    // Path visualisation
+    // -------------------------------------------------------------------------
+
+    private void DrawPath(IEnumerable<Vector2Int> path)
+    {
+        _linePoints.Clear();
+        foreach (Vector2Int p in path)
+            _linePoints.Add(GridToWorld(p.x, p.y));
+
+        pathLine.positionCount = _linePoints.Count;
+        pathLine.SetPositions(_linePoints.ToArray());
+
+        StartCoroutine(ClearPathAfter(PathDisplayDuration));
+    }
+
+    // -------------------------------------------------------------------------
+    // Win / lose checks
+    // -------------------------------------------------------------------------
+
+    private bool IsBoardCleared() => GetComponentInChildren<Cell>() == null;
+
+    private bool HasAvailablePairs()
+    {
+        for (int x1 = 1; x1 < width - 1; x1++)
+            for (int y1 = 1; y1 < height - 1; y1++)
             {
-                Tile a = tiles[i, j];
-                if (!a.Occupied || a.cell == null) continue;
+                Tile a = _tiles[x1, y1];
+                if (!a.IsOccupied || a.Cell == null) continue;
 
-                for (int k = 1; k < width - 1; k++)
-                {
-                    for (int l = 1; l < height - 1; l++)
+                for (int x2 = 1; x2 < width - 1; x2++)
+                    for (int y2 = 1; y2 < height - 1; y2++)
                     {
-                        if (i == k && j == l) continue;
+                        if (x1 == x2 && y1 == y2) continue;
 
-                        Tile b = tiles[k, l];
-                        if (!b.Occupied || b.cell == null) continue;
+                        Tile b = _tiles[x2, y2];
+                        if (!b.IsOccupied || b.Cell == null) continue;
+                        if (a.Cell.Pokemon != b.Cell.Pokemon) continue;
 
-                        // So sánh cùng loại Pokémon
-                        if (a.cell.pokemon == b.cell.pokemon)
-                        {
-                            var path = BFS.FindPath(tiles, a.cell.pos, b.cell.pos);
-                            if (path != null)
-                            {
-                                Debug.Log($"✅ Cặp còn nối được: {a.cell.pokemon} ({i},{j}) ↔ ({k},{l})");
-                                return true; // Ngưng ngay khi tìm thấy 1 cặp hợp lệ
-                            }
-                        }
+                        if (BFS.FindPath(_tiles, a.Cell.GridPosition, b.Cell.GridPosition) != null)
+                            return true;
                     }
-                }
             }
-        }
 
-        Debug.Log("❌ Không còn cặp nào có thể nối.");
         return false;
     }
 
-    #region Enumerator
+    // -------------------------------------------------------------------------
+    // Utility
+    // -------------------------------------------------------------------------
 
-    private IEnumerator DeleteCellAfterDelay(float delay, Cell firstSelected, Cell secondSelected)
+    private Vector3 GridToWorld(int x, int y) =>
+        new(x + _offsetX + x * cellPadding,
+            y + _offsetY + y * cellPadding,
+            0f);
+
+    private bool IsInterior(int x, int y) =>
+        x >= 1 && x < width - 1 && y >= 1 && y < height - 1;
+
+    private void PlaySfx(AudioClip clip)
     {
-        Vector2Int posA = firstSelected.pos;
-        Vector2Int posB = secondSelected.pos;
+        if (clip != null)
+            SoundManagerSO.Instance.PlaySoundFX(clip, transform.position, GameManager.Instance.Volume);
+    }
+
+    // -------------------------------------------------------------------------
+    // Coroutines
+    // -------------------------------------------------------------------------
+
+    private IEnumerator ProcessMatchAfterDelay(float delay, Cell first, Cell second)
+    {
+        Vector2Int posA = first.GridPosition;
+        Vector2Int posB = second.GridPosition;
+
         yield return new WaitForSeconds(delay - 0.02f);
-        firstSelected.Clear();
-        secondSelected.Clear();
-       
-        DeleteCell(firstSelected);
-        DeleteCell(secondSelected);
-        firstSelected = null;
-        secondSelected = null;
-        Debug.Log(posA + " " + tiles[posA.x, posA.y].Occupied);
+
+        first.Deselect();
+        second.Deselect();
+        RemoveCell(first);
+        RemoveCell(second);
+        _firstSelected = null;
+        _secondSelected = null;
+
         yield return new WaitForSeconds(0.02f);
-        isDeleting = false;
 
-        UpdateBoard(level,posA, posB);
-        if(CheckWin())
+        _isProcessingMatch = false;
+
+        ApplyBoardUpdate(_currentLevelType, posA, posB);
+
+        if (IsBoardCleared())
         {
-            print("win");
-            NextLevel();
-
-        }
-        //Debug.Log(posA + " " + tiles[posA.x, posA.y].Occupied);
-
-    }
-    private IEnumerator ClearLineAfterDelay(float delay)
-    {
-        yield return new WaitForSeconds(delay);
-        lineRenderer.positionCount = 0;
-    }
-
-    private IEnumerator ShuffingEndsIn(float delay)
-    {
-        yield return new WaitForSeconds(delay);
-        isShuffling = false;
-    }
-
-    #endregion
-    public void PrintTile()
-    {
-        for (int i = 0; i < height; i++)
-        {
-            for (int j = 0; j < width; j++)
-            {
-                Debug.Log("[" + i + "," + j + "]" + "is" + tiles[i, j].Occupied);
-            }
+            Debug.Log("[Board] Level complete!");
+            _currentLevelType = GameManager.Instance.AdvanceToNextLevel();
+            InitialiseBoard();
         }
     }
-    private void PlaySound(AudioClip audioClip)
+
+    private IEnumerator ClearPathAfter(float delay)
     {
-        SoundManagerSO.Instance.PlaySOundFXClip(audioClip, transform.position, GameManager.Instance.volumn);
+        yield return new WaitForSeconds(delay);
+        pathLine.positionCount = 0;
+    }
+
+    private IEnumerator ResetShuffleFlagAfter(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        _isShuffling = false;
     }
 }

@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef50248b6cfbc1047ad17dc6d75e1685, type: 3}
   m_Name: kyugrem
   m_EditorClassIdentifier: Assembly-CSharp::Pokemon
-  code: 1
-  pokemonSprite: {fileID: 4853541962016426640, guid: 94c16c6132d40d1478d98dec80841c2e, type: 3}
+  Code: 4
+  PokemonSprite: {fileID: 4853541962016426640, guid: 94c16c6132d40d1478d98dec80841c2e, type: 3}

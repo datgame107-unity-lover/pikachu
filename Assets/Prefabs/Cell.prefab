@@ -196,7 +196,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &6219734461999110541
 Transform:
   m_ObjectHideFlags: 0
@@ -502,8 +502,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d8b487f1cb8e55b44b1ef4ceb83562c6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Cell
-  pokemonSpite: {fileID: 4808015827699754654}
-  frontground: {fileID: 5219598686351666363}
+  pokemonRenderer: {fileID: 4808015827699754654}
+  selectionHighlight: {fileID: 699748750701460420}
 --- !u!61 &-3710249195586943777
 BoxCollider2D:
   m_ObjectHideFlags: 0

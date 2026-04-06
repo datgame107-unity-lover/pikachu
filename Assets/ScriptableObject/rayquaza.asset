@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef50248b6cfbc1047ad17dc6d75e1685, type: 3}
   m_Name: rayquaza
   m_EditorClassIdentifier: Assembly-CSharp::Pokemon
-  code: 1
-  pokemonSprite: {fileID: 4891803829945934333, guid: 8a0a51c046b72be4b9fc17067748a260, type: 3}
+  Code: 5
+  PokemonSprite: {fileID: 4891803829945934333, guid: 8a0a51c046b72be4b9fc17067748a260, type: 3}

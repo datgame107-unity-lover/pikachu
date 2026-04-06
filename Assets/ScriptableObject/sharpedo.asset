@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef50248b6cfbc1047ad17dc6d75e1685, type: 3}
   m_Name: sharpedo
   m_EditorClassIdentifier: Assembly-CSharp::Pokemon
-  code: 1
-  pokemonSprite: {fileID: 1145354552534265582, guid: 81a808e43b69ae748b6a3ba4a92a2751, type: 3}
+  Code: 10
+  PokemonSprite: {fileID: 1145354552534265582, guid: 81a808e43b69ae748b6a3ba4a92a2751, type: 3}

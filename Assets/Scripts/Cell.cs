@@ -1,42 +1,71 @@
 ﻿using UnityEngine;
 
+/// <summary>
+/// Represents a single tile cell on the board. Handles visual state and forwards
+/// click events to the <see cref="Board"/> singleton.
+/// </summary>
 [RequireComponent(typeof(Collider2D))]
 public class Cell : MonoBehaviour
 {
-    [SerializeField]
-    private SpriteRenderer pokemonSpite;
-    [SerializeField]
-    private SpriteRenderer frontground;
-    public Pokemon pokemon { get;  set; }
-    public Vector2Int pos { get;  set; }
-    public Tile tile;
+    // -------------------------------------------------------------------------
+    // Serialized fields
+    // -------------------------------------------------------------------------
 
-    public Cell(Pokemon pokemon, Vector2Int pos)
-    {
-        this.pokemon = pokemon;
-        this.pos = pos;
-        this.pokemonSpite.sprite = pokemon.pokemonSprite;
-    }
-    
-    private void OnMouseDown()
-    {
-        Board.Instance.FindConnectedPath(this);
-    }
-    public void Clear()
-    {
-        ChangeFrontgroundState(false);
-    }
-    public void Choose()
-    {
-        ChangeFrontgroundState(true);
+    [SerializeField] private SpriteRenderer pokemonRenderer;
+    [SerializeField] private SpriteRenderer selectionHighlight;
 
-    }
-    public void SetPokemonSprite(Sprite sprite)
+    // -------------------------------------------------------------------------
+    // Properties
+    // -------------------------------------------------------------------------
+
+    public Pokemon Pokemon { get; private set; }
+    public Vector2Int GridPosition { get; set; }
+    public Tile Tile { get; set; }
+
+    // -------------------------------------------------------------------------
+    // Initialisation
+    // -------------------------------------------------------------------------
+
+    /// <summary>Configures the cell with a Pokémon and its board position.</summary>
+    public void Initialise(Pokemon pokemon, Vector2Int gridPosition)
     {
-        this.pokemonSpite.sprite = sprite;
+        Pokemon = pokemon;
+        GridPosition = gridPosition;
+
+        SetSprite(pokemon.PokemonSprite);
+        Deselect();
     }
-    public void ChangeFrontgroundState(bool state)
+
+    // -------------------------------------------------------------------------
+    // Visual state
+    // -------------------------------------------------------------------------
+
+    /// <summary>Marks this cell as selected (shows highlight).</summary>
+    public void Select() => SetHighlight(true);
+
+    /// <summary>Clears the selected state (hides highlight).</summary>
+    public void Deselect() => SetHighlight(false);
+
+    /// <summary>Assigns the Pokémon sprite to the renderer.</summary>
+    public void SetSprite(Sprite sprite)
     {
-        frontground.gameObject.SetActive(state);
+        if (pokemonRenderer != null)
+            pokemonRenderer.sprite = sprite;
+    }
+
+    // -------------------------------------------------------------------------
+    // Unity messages
+    // -------------------------------------------------------------------------
+
+    private void OnMouseDown() => Board.Instance.OnCellClicked(this);
+
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
+
+    private void SetHighlight(bool isActive)
+    {
+        if (selectionHighlight != null)
+            selectionHighlight.gameObject.SetActive(isActive);
     }
 }

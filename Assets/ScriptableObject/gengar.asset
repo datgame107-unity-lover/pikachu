@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef50248b6cfbc1047ad17dc6d75e1685, type: 3}
   m_Name: gengar
   m_EditorClassIdentifier: Assembly-CSharp::Pokemon
-  code: 1
-  pokemonSprite: {fileID: -4875203344908361815, guid: c50696f067e78a64eb50ca2fe24940fa, type: 3}
+  Code: 2
+  PokemonSprite: {fileID: -4875203344908361815, guid: c50696f067e78a64eb50ca2fe24940fa, type: 3}
